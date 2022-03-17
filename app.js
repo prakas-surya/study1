@@ -31,4 +31,9 @@ mongoose.connect(
 
 
 //server listen
-app.listen(3000);
+
+app.set('port', process.env.PORT || 4200)
+
+
+
+app.listen(app.get('port'), () => console.log('listening on port ' + app.get('port')))
