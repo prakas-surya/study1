@@ -1,13 +1,23 @@
 const mongoose = require('mongoose');
 
 const PostSchema = mongoose.Schema({
-    title: {
+    name: {
         type: String,
-        required:true
+        required:true,
+        min:6,
+        max:45
     },
-    description: {
+    email: {
         type: String,
-        required: true
+        required: true,
+        min:6,
+        max:233
+    },
+    password: {
+        type: String,
+        required: true,
+        min:6,
+        max:111
     },
     date: {
         type: Date,

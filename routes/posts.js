@@ -1,70 +1,69 @@
 const express = require('express');
 const req = require('express/lib/request');
 const res = require('express/lib/response');
-
+const bcrypt = require('bcryptjs');
 const router = express.Router();
+const jsonwebtoken = require('jsonwebtoken');
 
 const Post = require('../models/Post');
 
-//get back all the posts
-router.get('/', async (req,res)=> {
-    try {
-        const posts = await Post.find();
-        res.json(posts);
-    } catch (err) {
-        res.json({ message : err });
-    }
-});
-
+const { registerValidation, loginValidation } = require('./validation');
 
 //submits a post
 router.post('/', async (req,res) => {
+
+    //validate before saving a user
+    const { error } = registerValidation(req.body);
+    if (error) return res.status(400).send(error.details[0].message);
+
+
+    //checking if the user is already exists
+    const emailExist = await Post.findOne({email : req.body.email});
+    if (emailExist) return res.status(400).send('email already exists...!');
+
+    //hash passwords
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(req.body.password, salt);
+
+
+    //create a new user
     const post = new Post({
-        title: req.body.title,
-        description: req.body.description
+        name: req.body.name,
+        email: req.body.email,
+        password: hashedPassword
     });
     try {
         const savedPost = await post.save();
-        res.json(savedPost);
+        res.json({post: post._id});
     }  catch (err) {
-        res.json({ message : err});
+        res.status(400).send(err);
     }
 
 });
 
-//specific post
-router.get('/:postID', async (req,res) => {
-    try{
-    const post = await Post.findById(req.params.postID);
-    res.json(post);
-    } catch (err) {
-        res.json({ message : err });
-    }
-});
+//login 
 
-//delete post
-router.delete('/:postID', async (req,res) => {
-    try {
-    const removedPost = await Post.remove({ _id: req.params.postID });
-    res.json(removedPost);
-    } catch ( err ) {
-        res.json({ message : err });
-    }
+router.post('/login', async (req,res)  => {
+
+    //validate before saving a user
+    const { error } = loginValidation(req.body);
+    if (error) return res.status(400).send(error.details[0].message);
+
+    //checking if the mail exists
+    const post = await Post.findOne({email : req.body.email});
+    if (!post) return res.status(400).send('email is not found..!');
+
+    //password is correct ...
+    const validPass = await bcrypt.compare(req.body.password, post.password);
+    if(!validPass) return res.status(400).send('invalid password.....!');
+
+
+    //create and assign a token
+    const token = jsonwebtoken.sign({_id: post._id}, process.env.TOKEN_SECRET);
+    res.header('auth-token', token).send(token);
+    
+
+    
 }); 
-
-//update a post
-
-router.patch('/:postID', async (req,res) => {
-    try{
-        const updatedPost = await Post.updateOne(
-            { _id: req.params.postID},
-            {$set: { title: req.body.title , description: req.body.description}}
-        );
-        res.json(updatedPost);
-    } catch(err){
-        res.json({ message:err });
-    }
-});
-
 
 module.exports = router;
